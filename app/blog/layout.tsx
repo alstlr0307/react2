@@ -1,5 +1,5 @@
 import { React } from "next/dist/server/route-modules/app-page/vendored/rsc/entrypoints"
-export default function RootLayout({
+export default function blogLayout({
   children,
 }: {
   children: React.ReactNode
@@ -7,9 +7,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <header>=== Root Layout ===</header>
+        <header>=== Blog Layout ===</header>
         <main>{children}</main>
-        <footer>=== Root Layout ===</footer>
+        <footer>=== Blog Layout ===</footer>
       </body>
     </html>
   )

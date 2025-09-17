@@ -1,5 +1,219 @@
 # 202130104 김민식
 
+# 9월 17일 4주차 강의내용
+
+---
+
+#### 용어 정의
+
+- `route(라우트)`: 경로. `routing(라우팅)`: 경로를 찾아가는 과정.
+- `path`: URL 경로 문자열.
+- `directory / folder`: 라우팅 맥락에서 폴더는 URL 세그먼트에 대응.
+- `segment`: 라우팅과 매핑되는 폴더(경로의 한 구간).
+
+---
+
+#### Creating a page (페이지 만들기)
+
+- Next.js는 **파일 시스템 기반 라우팅**을 사용합니다.
+- 특정 경로의 UI는 해당 위치의 `page.tsx`로 정의하고 **default export** 합니다.
+
+```tsx
+// app/page.tsx
+export default function Page() {
+  return <h1>Hello Next.js!</h1>;
+}
+```
+
+---
+
+#### Creating a layout (레이아웃 만들기)
+
+- **Layout**은 여러 페이지에서 공유되는 UI입니다.
+- 레이아웃은 네비게이션 시 상태/상호작용을 유지하며 다시 렌더링되지 않습니다.
+- 레이아웃 컴포넌트는 반드시 `children`을 받아 하위 UI를 감쌉니다.
+
+```tsx
+// app/layout.tsx (Root Layout: 필수, html/body 포함)
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <header>Root Layout Header</header>
+        <main>{children}</main>
+        <footer>Root Layout Footer</footer>
+      </body>
+    </html>
+  );
+}
+```
+
+- 필요 시 하위 경로에 별도 레이아웃을 추가할 수 있습니다.
+
+```tsx
+// app/blog/layout.tsx
+export default function BlogLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <header>*** Blog Layout Header ***</header>
+        <main>{children}</main>
+        <footer>*** Blog Layout Footer ***</footer>
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx
+// app/blog/[slug]/layout.tsx
+export default function SlugLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <header>^^^ Slug Layout Header ^^^</header>
+        <main>{children}</main>
+        <footer>^^^ Slug Layout Footer ^^^</footer>
+      </body>
+    </html>
+  );
+}
+```
+
+- **레이आ웃 적용 순서**: Root → Blog → Slug → Page
+
+---
+
+#### Creating a nested route (중첩 라우트 만들기)
+
+- **폴더 = URL 세그먼트**, **파일(`page.tsx`, `layout.tsx`) = UI** 입니다.
+- `/blog` 경로 예시:
+
+```tsx
+// app/blog/page.tsx
+import { getPosts } from "@/lib/posts";
+import { Post } from "@/ui/post";
+
+export default async function Page() {
+  const posts = await getPosts();
+  return (
+    <ul>
+      {posts.map((post) => (
+        <Post key={post.id} post={post} />
+      ))}
+    </ul>
+  );
+}
+```
+
+- 폴더 중첩으로 `/blog/[slug]` 경로를 구성할 수 있습니다.
+
+---
+
+#### Understanding `[slug]` (동적 라우팅)
+
+- 대괄호 폴더는 **동적 세그먼트**를 의미합니다.
+- 데이터에 해당 key(`slug`)가 있어야 매핑됩니다.
+
+```tsx
+// app/blog/[slug]/page.tsx
+import { posts } from "../posts";
+
+export default async function Posts({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;                   // 최신 App Router: params가 Promise일 수 있음
+  const post = posts.find((p) => p.slug === slug); // O(n): 더미 데이터 수준에서 사용
+
+  if (!post) return <h1>게시글을 찾을 수 없습니다!</h1>; // 예외 처리
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+
+- 참고: 데이터가 커지면 `.find` 대신 **DB 쿼리** 사용을 권장합니다.
+
+---
+
+#### `/blog/page.tsx` 수정 (리스트/상세 분리)
+
+- `/blog/page.tsx` → 포스트 목록
+- `/blog/[slug]/page.tsx` → 포스트 상세
+
+```tsx
+// app/blog/page.tsx
+import { posts } from "./posts";
+
+export default async function Page() {
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.slug}>
+          {post.title} / {post.content}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
+#### Nesting layouts (중첩 레이아웃)
+
+- 레이아웃은 상위 → 하위로 중첩 적용되어 공통 UI를 단계별로 재사용합니다.
+- 출력 순서 예: Root Header → Blog Header → Slug Header → Post → Slug Footer → Blog Footer → Root Footer.
+
+---
+
+#### Rendering with search params (검색 매개변수)
+
+- **서버 컴포넌트**에서는 `searchParams` prop으로 쿼리 문자열을 읽습니다.
+- **클라이언트 컴포넌트**에서는 `useSearchParams` 훅을 사용합니다.
+
+```tsx
+// app/products/page.tsx (Server Component)
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  return <p>카테고리: {params.category}</p>;
+}
+```
+
+```tsx
+// (Client Component) 예시
+"use client";
+import { useSearchParams } from "next/navigation";
+
+export default function Filters() {
+  const sp = useSearchParams();
+  const filter = sp.get("filter");
+  return <p>필터: {filter ?? "없음"}</p>;
+}
+```
+
+- 비교: `params`는 **path 세그먼트**(`/blog/[slug]`), `searchParams`는 **query string**(`/products?page=2`).
+
+---
+
+#### Why Dynamic Rendering? (동적 렌더링인 이유)
+
+- `searchParams` 값은 **요청 시점**에만 확정 → 정적 생성 불가.
+- `searchParams`를 사용하면 해당 페이지는 자동으로 **동적 렌더링** 처리됩니다.
+
+| 구분 | 정적 렌더링 (Static) | 동적 렌더링 (Dynamic) |
+|---|---|---|
+| 예시 | `/about`, `/blog` | `/products?page=2` |
+| 장점 | 빠름, 캐시 용이 | 유연, 쿼리 기반 응답 |
+| `searchParams` | 사용 불가 | 사용 가능 |
+
+---
+
 # 9월 10일 3주차 강의
 
 ---
