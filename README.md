@@ -1,5 +1,240 @@
 # 202130104 김민식
 
+# 9월 24일 5주차 강의내용
+
+---
+
+#### 용어 정의
+
+- `route(라우트)`: 경로.  
+- `routing(라우팅)`: 경로를 찾아가는 과정.  
+- `path`: URL 경로 문자열.  
+- `segment`: 경로를 구성하는 한 구간.  
+- `searchParams`: URL의 쿼리 문자열을 의미.  
+
+---
+
+#### searchParams란?
+
+- URL의 쿼리 문자열(Query String)을 읽는 방법.  
+
+예시:
+```
+/products?category=shoes&page=2
+```
+
+- 여기서 `category=shoes`, `page=2`가 search parameters.  
+
+```tsx
+// app/products/page.js
+export default function ProductsPage({ searchParams }) {
+  return <p>카테고리: {searchParams.category}</p>;
+}
+```
+
+- 특징: `searchParams`는 컴포넌트의 props로 전달되며, `URLSearchParams`처럼 작동.
+
+---
+
+#### 왜 동적 렌더링이 되는가?
+
+- `searchParams`는 요청 시점에만 알 수 있음.  
+- 따라서 미리 정적으로 만들 수 없고, Next.js는 해당 페이지를 **동적 렌더링** 처리.
+
+| 구분 | 정적 렌더링 | 동적 렌더링 |
+|------|-------------|-------------|
+| 예시 | `/about` | `/products?page=2` |
+| 장점 | 빠름, 캐시 | 유연, 쿼리 응답 가능 |
+| searchParams | ❌ | ✅ |
+
+---
+
+#### searchParams 실습
+
+폴더 구조:
+```
+app/
+ └─ products/
+     └─ page.tsx
+```
+
+코드 예시:
+```tsx
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string; name?: string }>
+}) {
+  const { id = "non id", name = "non name" } = await searchParams;
+  return (
+    <div>
+      <h1>Products Page</h1>
+      <p>id: {id}</p>
+      <p>name: {name}</p>
+    </div>
+  );
+}
+```
+
+---
+
+#### [slug]의 이해 (동적 라우팅)
+
+- 대괄호 폴더는 **동적 세그먼트**.  
+- 데이터에서 해당 key(slug)를 찾아 매핑.
+
+```tsx
+// app/blog/[slug]/page.tsx
+import { posts } from "../posts";
+
+export default async function Posts({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = posts.find((p) => p.slug === slug);
+  if (!post) return <h1>게시글을 찾을 수 없습니다!</h1>;
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+
+- 데이터가 커지면 `.find` 대신 DB 쿼리 사용 권장.
+
+---
+
+#### searchParams 코드 설명
+
+```tsx
+const { id = "non id", name = "non name" } = await searchParams;
+```
+
+- `await`: Promise에서 실제 값 추출.  
+- 비구조화 할당: `{id, name}` 형태로 꺼냄.  
+- 초기값 지정 가능.
+
+---
+
+#### Linking between pages (페이지 간 연결)
+
+- `<Link>`는 HTML `<a>`를 확장하여 **prefetching**과 **클라이언트 전환**을 지원.
+
+```tsx
+import Link from 'next/link';
+
+export default async function Post() {
+  const posts = await getPosts();
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.slug}>
+          <Link href={`/blog/${post.slug}`}>{post.title}</Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
+#### Link 컴포넌트 실습
+
+예시 출력:
+```
+=== Root Layout Header ===
+*** Blog Layout Header ***
+
+블로그 목록
+- Next.js 소개
+- App Router 알아보기
+- SSR vs SSG
+- 동적 렌더링
+
+*** Blog Layout Footer ***
+--- Root Layout Footer ---
+```
+
+추가 실습: 모든 페이지에 `Home`, `Blog` 메뉴 추가.
+
+---
+
+#### Route 방식 비교 (React vs Next.js)
+
+| 항목 | React | Next.js |
+|------|-------|---------|
+| 라우팅 방식 | 수동 | 자동 |
+| 라우터 도구 | react-router-dom 필요 | 내장 |
+| 정의 방식 | `<Route>` 코드 작성 | 파일/폴더 기반 자동 매핑 |
+
+---
+
+#### Route 방식 비교 (Pages Router vs App Router)
+
+| 항목 | Pages Router | App Router |
+|------|--------------|------------|
+| 도입 | 초기(1~12) | 13+ |
+| 디렉토리 | `pages/` | `app/` |
+| 권장 | 유지보수 중 | 권장 방식 |
+
+---
+
+#### App Router 구조 예시
+
+```
+app/
+ ├─ layout.tsx
+ ├─ page.tsx
+ ├─ about/page.tsx
+ └─ blog/[slug]/page.tsx
+```
+
+- layout: 공통 UI  
+- 추가 파일: `loading.tsx`, `error.tsx`, `not-found.tsx` 등
+
+---
+
+#### App Router 강력한 기능
+
+- 중첩 레이아웃  
+- 서버 컴포넌트 (RSC)  
+- 로딩 UI  
+- 에러 UI  
+- 병렬 라우팅  
+
+---
+
+#### Prefetching (프리페칭)
+
+- 사용자가 클릭하기 전, 백그라운드에서 미리 데이터 로드.  
+- `<Link>`는 자동 prefetch 지원.  
+
+```tsx
+<Link href="/about">About</Link>
+```
+
+- 정적 경로: 전체 프리페치  
+- 동적 경로: 부분/건너뜀  
+
+---
+
+#### Streaming (스트리밍)
+
+- 전체 페이지가 준비되기 전, 일부 UI 먼저 전송.  
+- `loading.tsx`를 활용하여 로딩 스켈레톤 표시.  
+- `<Suspense>`로 중첩 로딩 UI 작성 가능.  
+
+---
+
+#### Shared Layouts & Navigation
+
+- **Shared layouts remain interactive**: 페이지 이동 시에도 공통 레이아웃은 유지.  
+- **Navigation is interruptible**: 요청 진행 중 새 요청이 들어오면 이전 요청 취소.
+
+
+
+
 # 9월 17일 4주차 강의내용
 
 ---
