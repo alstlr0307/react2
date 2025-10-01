@@ -1,18 +1,22 @@
-// app/blog/page.tsx
-import Link from "next/link";
-import { posts } from "./posts";
+import { posts } from "../posts";
 
-export default function BlogPage2() {
+export default async function PostPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params; 
+  // generateStaticParams가 없으므로 런타임에서 처리
+  const post = posts.find((p) => p.slug === slug);
+
+  if (!post) {
+    return <h1>포스트를 찾을 수 없습니다.</h1>;
+  }
+
   return (
-    <div>
-      <h1>블로그2 목록</h1>
-      <ul>
-        {posts.map((post) => (
-          <li key={post.slug}>
-            <Link href={`/blog2/${post.slug}`}>{post.title}</Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
   );
 }

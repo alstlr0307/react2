@@ -1,5 +1,286 @@
 # 202130104 김민식
 
+# 10월 1일 6주차 강의내용
+
+## Next.js 네비게이션 & 전환 정리 (App Router)
+
+## 1-4. Client-side transitions (클라이언트 측 전환)
+
+- 일반적으로 서버 렌더링 페이지로 이동하면 전체 페이지가 **로드**됩니다.  
+  → 이로 인해 `state`가 삭제되고, 스크롤 위치가 재설정되며, 상호작용이 차단됩니다.  
+
+- **Next.js의 `<Link>` 컴포넌트**를 사용하면 클라이언트 측 전환을 통해 이를 방지합니다.  
+  - 페이지를 다시 로딩하는 대신, 다음과 같은 방법으로 **콘텐츠를 동적으로 업데이트**합니다:  
+    - 공유 레이아웃과 UI를 유지  
+    - 현재 페이지를 **미리 가져오기(prefetching)** → 로딩 상태 또는 사용 가능한 경우 새 페이지로 빠르게 전환  
+
+### 핵심 포인트
+- 클라이언트 측 전환은 서버에서 **렌더링된 앱**을 클라이언트에서 **렌더링된 앱처럼 느껴지게 하는 요소**입니다.  
+- **프리페칭 + 스트리밍**과 함께 사용하면 동적 경로에서도 빠른 전환이 가능합니다.
+
+---
+
+## 1절 네비게이션 작동 방식 실습
+
+- 앞에서 배운 내용을 다시 확인합니다.  
+- 디렉토리 구조는 다음과 같습니다.  
+- 디렉토리 이름(`blog`)은 다르게 해도 괜찮습니다.  
+
+```plaintext
+app/
+ ├─ page.tsx       // Root Page
+ ├─ layout.tsx     // RootLayout
+ └─ blog/
+     ├─ page.tsx   // 블로그 목록
+     └─ loading.tsx // 로딩 스켈톤
+```
+
+### 실습 과정
+- **Root Page**를 간단히 작성합니다.  
+- `blog` 디렉토리를 만들고, 간단한 `page`와 **로딩 스켈톤**을 만듭니다.  
+- `RootLayout`에 **Link 컴포넌트**를 이용하여 `blog`의 네비게이션을 구성합니다.  
+- 로딩 스켈톤의 동작을 확인하기 위해 `blog/page`에 **time delay**를 줍니다.  
+- 문서에서는 `RootLayout`에 `<a>` 태그를 이용해서 `blog` 네비게이션을 만드는 예제가 존재합니다.  
+
+### 주의사항 (`<a>` vs `<Link>`)
+- 내부 페이지(`blog`)로 이동할 때는 `<a>` 태그를 사용하지 말고 반드시 `<Link>`를 사용해야 합니다.  
+- 외부 링크를 사용할 때만 `<a>` 태그를 활용할 수 있으며, `target`과 같은 속성을 추가하는 경우에 한해 사용 가능합니다.  
+- 그 외에는 항상 `<Link>`를 사용해야 합니다.  
+
+> 예시 오류 메시지:
+```plaintext
+Do not use an <a> element to navigate to '/blog'. Use <Link /> from 'next/link' instead.
+```
+
+---
+
+## 2. 전환을 느리게 만드는 요인
+
+- Next.js는 **최적화**를 통해 네비게이션 속도가 빠르고 반응성이 뛰어납니다.  
+- 하지만 특정 조건에서는 전환 속도가 느릴 수 있습니다.  
+- 아래는 일반적인 원인과 개선 방법입니다.  
+
+### 2-1. 동적 경로 없는 `loading.tsx`
+- **동적 경로**로 이동 시 서버 응답을 기다리는 동안 UX가 멈춘 것처럼 보일 수 있습니다.  
+- 해결: 부분 **프리페칭** + 경로 **렌더링 중 로딩 UI**를 표시하기 위해 해당 경로에 `loading.tsx` 추가.
+
+```tsx
+// app/blog/[id]/loading.tsx
+export default function Loading() {
+  return <LoadingSkeleton />;
+}
+```
+
+#### DevIndicators (Next.js 15.2.0~)
+- 개발 모드에서 경로가 정적/동적인지 확인 가능.  
+- `position` 옵션 새로 추가, `appIsrStatus`, `buildActivity`, `buildActivityPosition`은 **폐지**.
+
+```ts
+// next.config.ts
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  devIndicators: { position: "bottom-left" },
+};
+
+export default nextConfig;
+```
+
+### 2-2. `generateStaticParams`
+
+- 동적 세그먼트가 있어도 `generateStaticParams`가 **없으면** 요청 시점에 **동적 렌더링**으로 대체됩니다.  
+- `generateStaticParams`를 **추가하면** 빌드 시점에 정적 경로가 생성되어 정적 HTML을 제공.
+
+```tsx
+// app/blog/[slug]/page.tsx
+export async function generateStaticParams() {
+  const posts = await fetch("https://.../posts").then((res) => res.json());
+  return posts.map((post: any) => ({ slug: post.slug }));
+}
+```
+
+#### 실습 구조(없을 때)
+```plaintext
+app/
+ └─ blog2/
+     ├─ page.tsx      // 블로그 목록
+     ├─ posts.tsx     // 더미 데이터
+     └─ [slug]/page.tsx  // 개별 포스트(런타임 처리)
+```
+
+```tsx
+// app/blog2/[slug]/page.tsx
+import { posts } from "../posts";
+
+export default async function PostPage({
+  params,
+}: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = posts.find((p) => p.slug === slug);
+  if (!post) return <h1>포스트를 찾을 수 없습니다.</h1>;
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+
+#### 실습 구조(있을 때)
+```plaintext
+app/
+ └─ blog3/
+     ├─ page.tsx
+     ├─ posts.tsx
+     └─ [slug]/page.tsx  // generateStaticParams 사용
+```
+
+```tsx
+// app/blog3/[slug]/page.tsx
+import { posts } from "../posts";
+
+export async function generateStaticParams() {
+  return posts.map((post) => ({ slug: post.slug }));
+}
+
+export default function PostPage({ params }: { params: { slug: string } }) {
+  const post = posts.find((p) => p.slug === params.slug);
+  if (!post) return <h1>404 Not Found</h1>;
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+
+#### 빌드 시 동작 요약
+```ts
+// generateStaticParams() 결과 예
+[ { slug: "hello" }, { slug: "world" }, { slug: "nextjs" } ]
+```
+→ Next.js가 각 슬러그로 `page.tsx`를 실행하여 **정적 HTML** 생성  
+(예: `/blog/hello/index.html`, `/blog/world/index.html`, `/blog/nextjs/index.html`)
+
+#### 선택 기준
+- **자주 변하지 않는 페이지** → `generateStaticParams` 권장(SSG, 빠름/SEO 유리)  
+- **사용자 입력/DB 조회 등 실시간 데이터** → 런타임 처리 권장(SSR/ISR)
+
+### 2-2-보충. `await`이 없어도 `async`를 붙여 두는 이유
+1) **일관성**: 프로젝트 전반의 함수 형태 통일(공식 문서도 `async` 예시 다수)  
+2) **확장성**: 나중에 `fetch/DB`로 바꿔도 시그니처 변경 없이 수용  
+3) **RSC 호환**: Server Component는 `Promise` 반환 패턴에 최적화
+
+### 2-3. 느린 네트워크
+- 느린/불안정 네트워크에서는 **클릭 전에 프리페칭이 끝나지 않을 수 있음** → 로딩 지연 체감.  
+- `useLinkStatus`로 전환 중 **시각적 피드백(스피너/텍스트 로더)** 제공.
+
+```tsx
+// app/ui/Loading-indicator.tsx
+'use client'
+import { useLinkStatus } from 'next/link'
+
+export default function LoadingIndicator() {
+  const { pending } = useLinkStatus()
+  return pending ? (
+    <div role="status" aria-label="Loading" className="spinner" />
+  ) : null
+}
+```
+
+- **디바운스형 로딩 표시**: 짧은 지연(예: 100ms) 후에만 나타나도록 해서 불필요한 깜빡임 방지.
+
+```css
+/* CSS 예시 */
+.spinner {
+  opacity: 0;
+  animation:
+    fadeIn 500ms 100ms forwards,
+    rotate 1s linear infinite;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rotate { to { transform: rotate(360deg); } }
+```
+
+### 2-4. 프리페칭 비활성화
+- `<Link prefetch={false} />`로 **자동 프리페칭을 끄기** 가능 → 대량 링크 렌더링 시 유용.
+
+```tsx
+<Link prefetch={false} href="/blog">Blog</Link>
+```
+
+- **호버 시에만 프리페칭**하도록 커스텀 컴포넌트 사용:
+
+```tsx
+// app/ui/hover-prefetch-link.tsx
+'use client'
+import Link from 'next/link'
+import { useState } from 'react'
+
+function HoverPrefetchLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const [active, setActive] = useState(false)
+  return (
+    <Link href={href} prefetch={active ? null : false} onMouseEnter={() => setActive(true)}>
+      {children}
+    </Link>
+  )
+}
+export default HoverPrefetchLink
+```
+
+### 2-5. Hydration이 완료되지 않음
+- `<Link>`는 **클라이언트 컴포넌트** → 프리페칭 전 **Hydration 선행** 필요.  
+- 초기 대용량 번들로 Hydration이 지연될 수 있음.  
+- 개선: **선택적 Hydration**, `@next/bundle-analyzer`로 번들 축소, 가능 시 **서버 컴포넌트로 이전**.
+
+---
+
+## Hydration이란?
+- 서버에서 생성된 **정적 HTML**에 클라이언트의 **JavaScript 로직을 연결**하여
+  **상호작용 가능** 상태로 만드는 과정. (SSR과 상호 보완)
+
+---
+
+## Shared layouts remain interactive / Navigation is interruptible
+
+### Shared layouts remain interactive
+- App Router의 `layout.tsx`는 여러 페이지 간 **공유**되며, 페이지 전환 시 **리렌더링 없이 유지**.  
+- 사이드바/네비 메뉴/플레이어 등은 **로딩 중에도 동작 지속**.
+
+### Navigation is interruptible
+- 사용자가 전환 중 다른 링크를 클릭하면 **이전 요청 취소** 후 새 요청으로 전환.  
+- 결과: 끊기지 않는 UI + 인터럽트 가능한 네비게이션.
+
+---
+
+## 3. Examples – 네이티브 히스토리 API
+
+- Next.js는 `window.history.pushState` / `window.history.replaceState`를 활용해
+  **리로드 없이** 기록 스택을 갱신하며, `usePathname`, `useSearchParams`와 동기화.
+
+### pushState
+- 기록 스택에 **새 항목 추가** → 뒤로가기 **가능**.  
+- 예: 제품 목록 정렬 상태 반영.
+
+### replaceState
+- **현재 항목 교체** → 뒤로가기 **불가능**.  
+- 예: 애플리케이션 **Locale 전환**.
+
+---
+
+## 부록: 비교 요약 (generateStaticParams 유무)
+
+| 항목 | 없음 (SSR/ISR) | 있음 (SSG) |
+|---|---|---|
+| 페이지 생성 시점 | 요청 시 서버 생성 | 빌드 타임 생성 |
+| 초기 로딩 속도 | 상대적으로 느림 | 매우 빠름 |
+| SEO | 가능하나 요청 시 생성 | 매우 유리(즉시 크롤링) |
+| 유연성 | 무한정 slug 지원(DB 등) | 미리 정의된 slug만 |
+
+---
+
 # 9월 24일 5주차 강의내용
 
 ---
