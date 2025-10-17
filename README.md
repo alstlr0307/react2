@@ -1,5 +1,284 @@
 # 202130104 김민식
 
+# 10월 17일 7주차-보강 강의내용
+
+## 1. Server 및 Client Component를 언제 사용해야 하나요?
+
+- **client 환경과 server 환경**은 서로 다른 기능을 가지고 있습니다.  
+- `server` 및 `client component`를 사용하면, **각 환경에서 필요한 로직을 분리 실행**할 수 있습니다.
+
+---
+
+### ✅ Client Component를 사용하는 경우
+
+- **state 및 event handler** — 예: `onClick`, `onChange`  
+- **Lifecycle Logic** — 예: `useEffect`  
+- **브라우저 전용 API** — 예: `localStorage`, `window`, `Navigator.geolocation`  
+- **사용자 정의 Hook**
+
+---
+
+### 🧩 Server Component를 사용하는 경우
+
+- **데이터 fetching** — 서버 DB나 API에서 데이터를 가져올 때  
+- **보안 유지** — API key, token 등 노출 방지  
+- **JS 전송량 감소** — 클라이언트로 불필요한 JS 전송 최소화  
+- **FCP(First Contentful Paint)** 개선 — 콘텐츠를 서버에서 미리 렌더링
+
+---
+
+> ✍️ **정리 요약**
+>
+> - Client: 사용자 상호작용, 상태 관리, 브라우저 전용 기능  
+> - Server: 데이터 fetching, 보안 유지, 초기 렌더링 최적화
+
+---
+
+## 1-2. 예시 — Server와 Client Component 협업
+
+```tsx
+// app/[id]/page.tsx
+import LikeButton from "@/app/ui/like-button";
+import { getPost } from "@/lib/data";
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const post = await getPost(params.id);
+  return (
+    <div>
+      <h1>{post.title}</h1>
+      <LikeButton likes={post.likes} />
+    </div>
+  );
+}
+```
+
+```tsx
+// app/ui/like-button.tsx
+"use client";
+import { useState } from "react";
+
+export default function LikeButton({ likes }: { likes: number }) {
+  const [count, setCount] = useState(likes);
+  return <button onClick={() => setCount(count + 1)}>👍 {count}</button>;
+}
+```
+
+---
+
+## 1-3. getPost 함수의 구현
+
+```tsx
+type Post = { id: string; title: string; content: string; likes: number };
+
+const posts: Post[] = [
+  { id: "nextjs", title: "Next.js", content: "Next.js is great!", likes: 5 },
+  { id: "routing", title: "Routing", content: "Routes in App Router", likes: 3 },
+];
+
+export async function getPost(id: string): Promise<Post> {
+  await new Promise((r) => setTimeout(r, 100));
+  const post = posts.find((p) => p.id === id);
+  if (!post) throw new Error("Post not found");
+  return post;
+}
+```
+
+---
+
+## 1-4. LikeButton과 Optimistic Update
+
+```tsx
+"use client";
+import { useState } from "react";
+
+export default function LikeButton({ likes }: { likes: number }) {
+  const [count, setCount] = useState(likes);
+  const [isLiking, setIsLiking] = useState(false);
+
+  const handleClick = async () => {
+    setIsLiking(true);
+    setCount((c) => c + 1);
+    setTimeout(() => setIsLiking(false), 300);
+  };
+
+  return (
+    <button onClick={handleClick} disabled={isLiking}>
+      ❤️ {count}
+    </button>
+  );
+}
+```
+
+> **Optimistic Update**: 서버 응답을 기다리지 않고 UI를 즉시 변경하여 더 빠른 반응을 보이는 UX 최적화 기법.
+
+---
+
+## 2. Next.js에서 Server / Client Component 작동 원리
+
+### 2-1. Server Component의 작동
+
+- **React API**를 활용해 서버에서 렌더링을 조정
+- **Chunk 단위**로 라우팅 구조를 분리 (`layout`, `page`)
+
+**RSC Payload (React Server Component Payload)**를 통해 HTML을 미리 렌더링(prerender)
+
+#### React Server Component Payload(RSC)
+- 렌더링된 서버 컴포넌트 트리의 압축된 바이너리 표현
+- client에서 DOM 갱신에 활용됨
+
+---
+
+### 2-2. Client Component의 작동 (첫 번째 Load)
+
+1. **HTML**은 사용자에게 미리보기 형태로 즉시 표시됩니다.
+2. **RSC Payload**는 client가 server component 트리를 조정하는 데 사용됩니다.
+3. **Hydration**은 이벤트 핸들러를 DOM에 연결하여 정적 HTML을 인터랙티브하게 만듭니다.
+
+---
+
+### 2-3. 후속 탐색
+
+- **RSC Payload**는 prefetch 및 cache 되어, 후속 탐색 시 빠르게 로드됩니다.  
+- **Client Component**는 server에서 렌더링된 HTML 없이, 클라이언트에서 전적으로 렌더링됩니다.
+
+---
+
+## 3. Example
+
+### 3-1. Client Component 사용
+
+```tsx
+"use client";
+import { useState } from "react";
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <div>
+      <p>{count} likes</p>
+      <button onClick={() => setCount(count + 1)}>Click me</button>
+    </div>
+  );
+}
+```
+
+> - 파일 상단에 `"use client"` 선언 시, 파일 전체가 client 범위로 작동  
+> - 모든 하위 컴포넌트는 자동으로 client로 간주되어 중복 선언 불필요
+
+---
+
+### 3-1. Client Component 실습
+
+```tsx
+// app/counter/page.tsx
+import Counter from "@/components/Counter";
+
+export default function CounterPage() {
+  return (
+    <div>
+      <h1>Counter Page</h1>
+      <Counter />
+    </div>
+  );
+}
+```
+
+> ✅ 실습: slug 페이지(like-button)와 counter 페이지를 연결하여 라우팅 확인
+
+---
+
+### 3-2. JS Bundle 크기 줄이기
+
+```tsx
+// app/layout.tsx
+import Search from "./search"; // Client Component
+import Logo from "./logo";     // Server Component
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <nav>
+      <Logo />
+      <Search />
+    </nav>
+    <main>{children}</main>
+  );
+}
+```
+
+```tsx
+// app/ui/search.tsx
+"use client";
+
+export default function Search() {
+  // 검색 입력 로직
+}
+```
+
+> 🔍 Search는 대화형 요소이므로 Client Component로, Logo는 정적 요소이므로 Server Component로 유지
+
+---
+
+### 3-3. Server → Client 데이터 전달
+
+```tsx
+// app/[id]/page.tsx
+import LikeButton from "@/app/ui/like-button";
+import { getPost } from "@/lib/data";
+
+export default async function Page({ params }: { params: { id: string } }) {
+  const post = await getPost(params.id);
+  return (
+    <div>
+      <main>
+        <h1>{post.title}</h1>
+        <LikeButton likes={post.likes} />
+      </main>
+    </div>
+  );
+}
+```
+
+```tsx
+// app/ui/like-button.tsx
+"use client";
+export default function LikeButton({ likes }: { likes: number }) {
+  // 클라이언트에서 likes 활용
+}
+```
+
+---
+
+### 직렬화(Serialization)
+
+- React에서는 서버에서 클라이언트로 넘길 때 **직렬화 가능한 데이터**만 허용됩니다.
+- 문자열, 숫자, 배열, 순수 객체(JSON)는 가능하지만, 함수, Date, Symbol 등은 불가능합니다.
+
+> React/Next.js는 서버에서 Component 트리의 상태를 직렬화하여 전송하고,
+> 클라이언트에서 역직렬화 후 다시 렌더링합니다.
+
+---
+
+✅ **전체 요약**
+
+| 구분 | Server Component | Client Component |
+|------|------------------|------------------|
+| 실행 위치 | Node.js (서버) | 브라우저 |
+| 목적 | 데이터 Fetch, 보안, 초기 렌더링 | 상태, 이벤트, UI 상호작용 |
+| 데이터 전달 | props 직렬화 필요 | 서버 데이터 수신 후 렌더링 |
+| 예시 | layout, page | button, form, input |
+
+---
+
+> ✨ **정리:**
+>
+> Next.js App Router는 Server와 Client Component를 분리하여 성능과 UX를 극대화합니다.  
+> Server는 데이터를 처리하고, Client는 상호작용을 담당하는 구조로 구성하는 것이 이상적입니다.
+
+
+# 10월 15일 8주차 (중간고사)
+
+# 10월 8일 7주차 (추석 연휴)
+
 # 10월 1일 6주차 강의내용
 
 ## Next.js 네비게이션 & 전환 정리 (App Router)
