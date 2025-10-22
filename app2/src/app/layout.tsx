@@ -1,32 +1,39 @@
-// src/app/layout.tsx
 import Link from "next/link";
-import React from "react";
+import ThemeProvider from "../components/theme_provider";
+import ThemeStatus from "@/components/theme-status";
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <body>
-        <header>
-          <p>=== Root Layout Header ===</p>
-          <nav>
-            <Link href="/">Home</Link> | <Link href="/counter">Counter</Link>
-            <br />
-            <br />
-            Slug Page Menu:&nbsp;
-            <Link href="/nextjs">nextjs</Link>&nbsp;&nbsp;
-            <Link href="/routing">routing</Link>&nbsp;&nbsp;
-            <Link href="/ssr-ssg">ssr-ssg</Link>&nbsp;&nbsp;
-            <Link href="/dynamic-routes">dynamic-routes</Link>
-          </nav>
-        </header>
+        <ThemeProvider>
+          <header>
+            <p>🌐 Root Layout Header ---</p>
+            <nav>
+              <Link href="/">Home</Link> | <Link href="/counter">Counter</Link>
+              <br />
+              SSG / SSR Example:&nbsp;
+              <Link href="/nextjs">NextJS</Link>&nbsp;&nbsp;
+              <Link href="/routing">Routing</Link>&nbsp;&nbsp;
+              <Link href="/ssr-ssg">SSR-SSG</Link>
+              <br />
+              <Link href="/dynamic-routes">Dynamic Routes</Link>&nbsp;|
+              &nbsp;
+              <Link href="/interleaved">Interleaving 예제</Link>
+            </nav>
+            <ThemeStatus />
+          </header>
 
-        <main>{children}</main>
+          <main>{children}</main>
 
-        <footer>=== Root Layout Footer ===</footer>
+          <footer>
+            <p>📄 Root Layout Footer ---</p>
+          </footer>
+        </ThemeProvider>
       </body>
     </html>
   );

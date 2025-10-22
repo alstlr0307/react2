@@ -1,5 +1,211 @@
 # 202130104 김민식
 
+# 10월 22일 9주차 강의 내용
+
+## 📘 전체 개요
+이 문서는 Next.js에서 **Server / Client Component의 Interleaving 개념**과  
+**React Context Provider 실습 코드**를 정리한 학습 문서입니다.
+
+---
+
+### 3-4. Server 및 Client Component 인터리빙
+
+### 🧩 인터리빙(Interleaving) 개념
+- 여러 데이터 블록이나 비트를 섞어서 전송하거나 처리하여 오류 발생 시 영향을 최소화하는 기술.
+- 데이터 통신에서 **버스트 오류(연속적 오류)** 를 줄이고 오류 정정 코드의 효율을 높이기 위해 사용됨.
+- 프로그래밍에서는 **Server와 Client 컴포넌트가 섞여 동작**하는 것을 의미.
+
+### 일반적인 패턴
+```tsx
+'use client'
+
+export default function Modal({ children }: { children: React.ReactNode }) {
+  return <div>{children}</div>
+}
+```
+→ `<ClientComponent>` 내부에 공간(slot)을 만들고 `children`을 삽입하는 패턴이 일반적.
+
+---
+
+## 📡 예제 심화
+Server Component와 Client Component를 혼합하여 사용하는 예:
+```tsx
+// app/page.tsx
+import Modal from './ui/modal'
+import Cart from './ui/cart'
+
+export default function Page() {
+  return (
+    <Modal>
+      <Cart />
+    </Modal>
+  )
+}
+```
+
+📘 **핵심 요약**
+- Client는 state와 UI 제어, Server는 데이터 제공.
+- Server → Client 간 props 전달 가능.
+- Server Component는 서버에서 미리 렌더링됨.
+- Client Component에서 Server UI를 시각적으로 중첩.
+
+---
+
+## 🧪 실습
+Next.js는 기본적으로
+- Server Component → 서버 렌더링 (데이터 패칭 가능)
+- Client Component → 브라우저 렌더링 (상호작용 가능)
+
+즉, Server Component 안에는 Client Component를 포함할 수 있지만, 그 반대는 직접적으로 불가능.
+
+이를 해결하기 위한 아이디어가 **interleaving**.
+
+> 클라이언트의 children 슬롯에 서버 컴포넌트를 끼워 넣는 방식.
+
+---
+
+## 3-5. Context란 무엇인가?
+
+## 🧠 Context의 정의
+- React의 Context API를 사용하여 컴포넌트 간 데이터를 공유.
+- 부모 → 자식 간 props 전달 없이도 데이터 접근 가능.
+
+### 주요 특징
+1. **전역 상태 관리**: 전 애플리케이션에서 공유 가능한 데이터 중앙관리.
+2. **Props Drilling 해결**: 깊은 트리 구조에서도 props 전달 없이 데이터 접근 가능.
+3. **React 기능 기반**: Next.js에서도 동일한 방식으로 동작.
+
+### 기본 예제
+```tsx
+const MyContext = React.createContext();
+
+function MyComponent() {
+  const value = useContext(MyContext);
+  return <div>{value}</div>;
+}
+
+function App() {
+  return (
+    <MyContext.Provider value="Hello from Context">
+      <MyComponent />
+    </MyContext.Provider>
+  );
+}
+```
+
+---
+
+## 3-5. Context Provider (컨텍스트 제공자)
+
+## 🧱 ThemeProvider 예제
+```tsx
+'use client'
+import { createContext } from 'react'
+
+export const ThemeContext = createContext({})
+
+export default function ThemeProvider({ children }: { children: React.ReactNode }) {
+  return <ThemeContext.Provider value="dark">{children}</ThemeContext.Provider>
+}
+```
+
+- Context Provider는 Client Component여야 함.
+- Provider를 통해 하위 컴포넌트로 데이터 전파.
+
+---
+
+## ⚙️ Layout에서 적용
+```tsx
+import ThemeProvider from './theme-provider'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
+    </html>
+  )
+}
+```
+- Server Component에서도 Provider를 감싸 전체 앱에 Context 제공 가능.
+
+---
+
+## 🧪 Context Provider 실습
+
+### ThemeProvider 구조
+1. `useState`로 theme 상태 관리 (`'light' | 'dark'`)
+2. `useEffect`로 HTML에 data-theme 속성 반영
+3. CSS에서 속성 선택자로 테마 스타일 제어
+4. `ThemeStatus` Client Component로 토글 버튼 구현
+
+---
+
+### useEffect 코드
+```tsx
+useEffect(() => {
+  if (typeof window !== 'undefined') {
+    document.documentElement.dataset.theme = theme
+  }
+}, [theme])
+```
+- 클라이언트 환경에서만 실행.
+- HTML의 `data-theme` 값 업데이트.
+- CSS에서 `[data-theme='light']`, `[data-theme='dark']`로 스타일 지정.
+
+---
+
+### ThemeStatus.tsx
+```tsx
+'use client'
+import { useContext } from 'react'
+import { ThemeContext } from './theme-provider'
+
+export default function ThemeStatus() {
+  const { theme, toggleTheme } = useContext(ThemeContext)
+  return (
+    <button onClick={toggleTheme}>
+      {theme === 'dark' ? 'Dark → Light' : 'Light → Dark'}
+    </button>
+  )
+}
+```
+- Context 구독(`useContext`)
+- 버튼 클릭 시 테마 전환 실행.
+
+---
+
+## 🧩 RootLayout 수정 (최종 구조)
+```tsx
+import ThemeProvider from '@/components/theme-provider'
+import ThemeStatus from '@/components/theme-status'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html>
+      <body>
+        <ThemeProvider>
+          <header><ThemeStatus /></header>
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}
+```
+- `ThemeStatus`를 헤더에 배치해 전역 테마 전환 구현.
+- `ThemeProvider`가 전역 Context 제공.
+
+---
+
+## 📘 핵심 정리
+- Server Component는 렌더링 기반, Client Component는 상호작용 담당.
+- Context는 React의 전역 데이터 공유 메커니즘.
+- ThemeProvider + ThemeStatus로 Context 기반 상태 관리 구현.
+- Next.js에서 SSR + CSR + Context가 통합된 예제 구조.
+
+
 # 10월 17일 7주차-보강 강의내용
 
 ## 1. Server 및 Client Component를 언제 사용해야 하나요?
