@@ -1,5 +1,214 @@
 # 202130104 김민식
 
+# 11월 05일 11주차 강의 내용
+
+
+
+# 10월 29일 10주차 강의 내용
+
+## Next.js 16 및 데이터 패칭 / Context / 외부 컴포넌트 / 환경 변수 종합 정리
+
+---
+
+## 🌀 Next.js 16 개요
+
+**출시일:** 2025년 10월 21일  
+**개선 내용:** 개발자 경험, 라우팅 및 캐싱 기능 강화
+
+### 주요 변경점
+
+- **캐시 컴포넌트 (Cache Components)**  
+  부분 사전 렌더링(PPR) 및 use cache 기반의 새로운 프로그래밍 모델
+
+- **Turbopack (stable)**  
+  모든 앱에 대한 기본 번들러
+
+- **Turbopack 파일 시스템 캐싱 (beta)**  
+  더 빠른 시작 및 컴파일 시간
+
+- **React 컴파일러 지원 (stable)**  
+  자동 메모이제이션 기능 통합
+
+- **향상된 라우팅**  
+  최적화된 네비게이션 및 prefetch 지원
+
+- **어댑터 API 빌드 (alpha)**  
+  사용자 정의 빌드 프로세스 지원
+
+- **개선된 캐싱 API**  
+  `updateTag()`, `refresh()`, `revalidateTag()` 등 제공
+
+---
+
+## 🧩 Context Provider 실습 코드 설명
+
+### 1️⃣ Context 생성 (theme-provider.tsx)
+
+```tsx
+export const ThemeContext = createContext({
+  theme: 'light',
+  toggleTheme: () => {},
+})
+
+export default function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+
+  const toggleTheme = () =>
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.documentElement.dataset.theme = theme
+    }
+  }, [theme])
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  )
+}
+```
+
+---
+
+### 2️⃣ Consumer 사용 (theme-status.tsx)
+
+```tsx
+'use client'
+import { useContext } from 'react'
+import { ThemeContext } from './theme-provider'
+
+export default function ThemeStatus() {
+  const { theme, toggleTheme } = useContext(ThemeContext)
+  return (
+    <button onClick={toggleTheme}>
+      {theme === 'dark' ? '🌙 Dark' : '☀️ Light'}
+    </button>
+  )
+}
+```
+
+---
+
+### 3️⃣ RootLayout 수정 (layout.tsx)
+
+```tsx
+import ThemeProvider from '@/components/theme-provider'
+import ThemeStatus from '@/components/theme-status'
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <ThemeProvider>
+          <header>
+            <ThemeStatus />
+          </header>
+          <main>{children}</main>
+        </ThemeProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+---
+
+## 🌐 외부(서드 파티) Component 실습
+
+### 📦 acme-carousel 라이브러리 적용 예시
+
+```tsx
+'use client'
+import { Carousel } from 'acme-carousel'
+
+export default function Gallery() {
+  const items = [
+    { id: '1', src: 'https://picsum.photos/id/1015/800/600', alt: 'Landscape 1' },
+    { id: '2', src: 'https://picsum.photos/id/1016/800/600', alt: 'Landscape 2' },
+    { id: '3', src: 'https://picsum.photos/id/1018/800/600', alt: 'Landscape 3' },
+  ]
+  return <Carousel items={items} />
+}
+```
+
+- 자동 전환, 반응형, 스와이프, lazy loading 등 다양한 기능 제공
+
+---
+
+## 🔒 환경 변수 노출 예방
+
+```js
+import 'server-only'
+
+export async function getData() {
+  const res = await fetch('https://external-service.com/data', {
+    headers: { authorization: process.env.API_KEY },
+  })
+  return res.json()
+}
+```
+
+> `server-only`를 사용해 클라이언트로 환경변수 노출 방지
+
+```bash
+npm install server-only
+```
+
+---
+
+## 📡 데이터 가져오기 (Fetching Data)
+
+### 서버 컴포넌트에서 ORM 또는 데이터베이스 사용
+
+```tsx
+import { db, posts } from '@/lib/db'
+
+export default async function Page() {
+  const allPosts = await db.select().from(posts)
+  return (
+    <ul>
+      {allPosts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+---
+
+### 클라이언트 컴포넌트에서 데이터 가져오기
+
+```tsx
+import Posts from '@/ui/posts'
+import { Suspense } from 'react'
+
+export default function Page() {
+  const posts = fetch('https://jsonplaceholder.typicode.com/posts')
+    .then((res) => res.json())
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  )
+}
+```
+
+| 항목 | 설명 |
+|------|------|
+| `await` 생략 | 스트리밍 렌더링을 위해 Promise 유지 |
+| `Suspense` | 로딩 중 임시 UI 표시 |
+| `use()` Hook | Promise 데이터 수신 |
+
+---
+
+> **작성자:** DeveloperN  
+> **용도:** VS Code 학습 및 실습용 README.md
+
+
 # 10월 22일 9주차 강의 내용
 
 ## 📘 전체 개요

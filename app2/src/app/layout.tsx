@@ -28,7 +28,7 @@ export default function RootLayout({
             <ThemeStatus />
           </header>
 
-          <main>{children}</main>
+          <main>  {children}</main>
 
           <footer>
             <p>📄 Root Layout Footer ---</p>
