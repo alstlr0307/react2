@@ -3,6 +3,182 @@
 # 11월 05일 11주차 강의 내용
 
 
+## Fetch의 이해
+
+## 1. 데이터 가져오기 (Fetching Data)
+
+### 1-4. 커뮤니티 라이브러리(서드파티(third-party) 라이브러리 및 도구)
+
+- 클라이언트 컴포넌트의 `fetch` 데이터는 **SWR** 또는 **React Query**와 같은 커뮤니티 라이브러리를 사용할 수 있습니다.
+
+### SWR(Stale-While-Revalidate)
+
+- **SWR**은 **Vercel**에서 만든 라이브러리로 먼저 캐시된(stale/오래된) 데이터를 빠르게 보여준 후, 백그라운드에서 최신 데이터(revalidate)를 다시 가져옵니다.
+- 그리고 최신 데이터가 도착하면 자동으로 화면을 업데이트합니다.
+
+### 💡 예시 코드
+
+```tsx
+function getPosts() {
+  return fetch('https://jsonplaceholder.typicode.com/posts')
+    .then((res) => res.json())
+}
+
+export default function Page() {
+  // Don't await the data fetching function
+  // `await`는 사용하지 않고 `Promise`를 반환합니다.
+  const posts = getPosts()
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  )
+}
+```
+
+## 제네릭(T)을 사용하여 반환 값의 타입을 명시적으로 지정
+
+- `useSWR()` Hook은 기본적으로 `data`의 타입을 자동으로 추론하지 않습니다.
+- 즉, `fetcher` 함수가 `<T>` 제네릭을 사용하더라도, `useSWR()` 쪽에서 어떤 타입을 T로 써야 하는지 알려주지 않으면, TypeScript는 `data`를 `any` 또는 `undefined`로 간주하게 됩니다.
+- 따라서 `data.map(...)`처럼 배열 메서드를 호출하려고 하면, `'data' is of type 'unknown'` 혹은 `data`가 `any`로 타입 경고가 뜨는 문제가 발생합니다.
+
+### 💡 문제를 해결하려면 `useSWR`에 제네릭 타입을 명시해 주면 됩니다.
+
+```tsx
+type Photo = {
+  id: string
+  title: string
+}
+
+const { data, error, isLoading } = useSWR<Photo[]>('https://jsonplaceholder.typicode.com/photos')
+
+[data?.map((post: { id: string; title: string }) => {
+  // ...
+})]
+```
+
+---
+
+### 오류의 원인을 확인해 보겠습니다.
+
+- `fetcher`가 `Promise<Photo[]>`를 반환한다고 명시하는 것입니다.
+
+### 💡 예시 코드
+
+```tsx
+function fetchData<T>(url: string): Promise<T> {
+  return fetch(url)
+    .then((res) => res.json())
+}
+
+type Post = {
+  id: string
+  title: string
+}
+
+const posts = fetchData<Post>('https://jsonplaceholder.typicode.com/posts')
+```
+
+## 서버 컴포넌트에서 getPosts() 함수를 사용하려면 (1)
+
+- 만일 앞의 예제에서 `getPosts()` 함수를 사용하고 싶다면 어떻게 하는 것이 좋을까요?
+- `fetch` 부분만 별도의 함수로 선언하면 됩니다.
+
+### 💻 예시 코드
+
+```tsx
+function getPosts() {
+  return fetch('https://jsonplaceholder.typicode.com/posts')
+    .then((res) => res.json())
+}
+
+export default function Page() {
+  // Don't await the data fetching function
+  // `await`는 사용하지 않고 `Promise`를 반환합니다.
+  const posts = getPosts()
+
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Posts posts={posts} />
+    </Suspense>
+  )
+}
+```
+
+## 서버 컴포넌트에서 getPosts() 함수를 사용하려면 (2)
+
+- 앞에서 `getPosts()` 함수를 구현해 봤지만 실무에서 사용할 때는 좀 더 복잡해집니다.
+- 동시 방식의 설정, 캐시 설정, 요청 중단, API Key 사용 여부, 예외 처리 등
+- 자세한 내용은 [developer.mozilla.org](https://developer.mozilla.org)을 참고하세요.
+
+### 💡 이런 경우라면 별도의 컴포넌트나 라이브러리로 만들어 놓는 것이 재사용에 유리합니다.
+
+- 이번에는 앞의 함수를 라이브러리로 분리하는 방법을 알아보겠습니다.
+
+### 💻 예시 코드
+
+1. `src/lib/` 디렉토리를 만들고, 그 안에 `getPost.tsx` 파일을 생성합니다.
+2. 그리고 다음과 같이 함수를 작성합니다. 설명을 위해 `fetch`는 두 개로 분할했습니다.
+3. 이 라이브러리는 범용으로 재사용할 목적으로 작성하기 때문에 URL이나 각종 설정은 매개변수로 받아서 처리합니다.
+
+```tsx
+// src/lib/getPosts.tsx
+export default function getPosts(url: string) {
+  const res = fetch(url)
+  const json = res.then((r) => r.json())
+
+  return json
+}
+```
+
+## 중복된 요청 제거 및 데이터 캐시
+
+- **Next.js**의 **데이터 캐시**를 사용하여 `fetch` 중복을 제거할 수도 있습니다. 예를 들어, `fetch` 옵션에서 `cache: 'force-cache'`를 설정합니다.
+
+### 데이터 캐시 활용
+
+- 데이터 캐시를 사용하면 현재 렌더 패스와 수신 요청에서 데이터를 공유할 수 있습니다.
+
+---
+
+### 💡 Fetch를 사용하지 않고 대신 ORM이나 데이터베이스를 직접 사용하는 경우 `React 캐시` 함수를 통해 데이터 액세스를 캐싱할 수 있습니다.
+
+- 문서의 예제를 실행해 보기 위해서는 **데이터베이스 연결**이 필요합니다.
+
+### 💻 예시 코드
+
+```tsx
+import { cache } from 'react'
+import { db, posts, eq } from '@lib/db'
+
+export const getPost = cache(async (id: string) => {
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, parseInt(id)),
+  })
+})
+```
+
+## 스트리밍
+
+### 경고(Warning):
+
+- 아래 내용은 애플리케이션에서 `cacheComponents` 구성 옵션이 활성화되어 있다고 가정합니다. 이 플래그는 **Next.js 15 Canary**에서 도입되었습니다.
+- **Next.js**의 변경은 `latest`와 `canary` 두 가지가 있습니다. `latest`는 현재 가장 최신 안정 버전, `canary`는 안정화 직전의 최신 개발 버전을 의미합니다.
+
+### 동적 렌더링
+
+- 서버 컴포넌트에서 `async/await`를 사용하는 경우 **Next.js**는 동적 렌더링을 선택합니다.
+- 즉, 모든 사용자 요청에 대해 서버에서 데이터를 가져와서 렌더링합니다.
+
+### 데이터 요청 속도
+
+- 데이터 요청 속도가 느리면 모든 데이터를 가져올 때까지 **전체 경로의 렌더링**이 차단됩니다.
+
+### 초기에 로드 시간과 사용자 경험 개선
+
+- 초기에 로드 시간을 개선하려면 **스트리밍**을 사용하여 페이지의 **HTML**을 더 작은 단위의 블록으로 나누고, 점진적으로 서버에서 클라이언트로 해당 블록을 전송할 수 있습니다.
+
 
 # 10월 29일 10주차 강의 내용
 

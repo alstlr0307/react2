@@ -1,9 +1,12 @@
 import Posts from '../blog/posts'
 import { Suspense } from 'react'
+import getPosts from '../lib/getPosts';
+
+
 
 export default function Page() {
-  const posts = fetch('https://jsonplaceholder.typicode.com/posts')
-    .then((res) => res.json())
+  // Don't await the data fetching function
+  const posts = getPosts("https://jsonplaceholder.typicode.com/posts");
 
   return (
     <Suspense fallback={<div>Loading...</div>}>

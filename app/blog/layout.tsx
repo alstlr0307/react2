@@ -1,16 +1,18 @@
-import { React } from "next/dist/server/route-modules/app-page/vendored/rsc/entrypoints"
-export default function blogLayout({
+import Link from "next/link";
+
+export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en">
       <body>
-        <header>=== Blog Layout ===</header>
+        <nav>
+          <Link href="/">Home</Link> | <Link href="/blog">Blog</Link>
+        </nav>
         <main>{children}</main>
-        <footer>=== Blog Layout ===</footer>
       </body>
     </html>
-  )
+  );
 }
