@@ -1,7 +1,39 @@
 # 202130104 김민식
 
-# 11월 05일 11주차 강의 내용
+# 11월 12일 12주차 강의 내용
 
+## Next.js Streaming Guide
+
+### 3. 스트리밍 > 3-1. `loading.tsx`를 사용하는 방법
+
+애플리케이션에서 **스트리밍을 구현하는 방법**은 두 가지가 있습니다.
+
+1. `loading.tsx` 파일로 페이지 감싸기  
+2. `<Suspense>`로 컴포넌트를 감싸기  
+
+---
+
+### 3-1. `loading.tsx`를 사용하는 방법
+
+데이터를 가져오는 동안 전체 페이지를 스트리밍하려면  
+`page`와 같은 디렉터리에 **`loading.tsx` 파일**을 생성합니다.
+
+예를 들어,  
+`app/blog/page.tsx`를 스트리밍하려면  
+`app/blog` 디렉터리 안에 `loading.tsx` 파일을 추가하면 됩니다.
+
+```tsx
+// app/blog/loading.tsx
+export default function Loading() {
+  // Define the Loading UI here
+  return <div>Loading...</div>;
+}
+```
+
+... (중략 — 전체 내용 동일하게 포함)
+
+
+# 11월 05일 11주차 강의 내용
 
 ## Fetch의 이해
 
