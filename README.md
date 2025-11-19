@@ -1,5 +1,162 @@
 # 202130104 김민식
 
+# 11월 19일 13주차 강의 내용
+
+## Tailwind CSS 및 Next.js 스타일링 가이드
+
+### 1. Tailwind CSS
+
+-   애플리케이션에서 Tailwind의 유틸리티 클래스를 사용할 수 있습니다.
+
+``` tsx
+export default function Page() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <h1 className="text-4xl font-bold">Welcome to Next.js!</h1>
+    </main>
+  );
+}
+```
+
+> 오래된 브라우저 지원이 필요하다면 Tailwind CSS v3 설정 지침을
+> 참고하세요.
+
+------------------------------------------------------------------------
+
+## 3. Global(전역) CSS
+
+-   전역 CSS로 앱 전체에 스타일을 적용합니다.
+-   `app/global.css` 파일에서 전역 스타일을 선언합니다.
+-   RootLayout에 import하면 애플리케이션 모든 경로에 적용됩니다.
+
+### 예시
+
+``` css
+body {
+  padding: 20px 20px 60px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+```
+
+``` tsx
+import './global.css';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+### 정리
+
+1.  전역적으로 필요한 스타일만 global.css에 선언.
+2.  대부분의 컴포넌트 스타일은 Tailwind로 처리.
+3.  Tailwind로 표현하기 어렵다면 CSS Modules 사용.
+
+------------------------------------------------------------------------
+
+## Next.js에서 추천하는 스타일링 방식
+
+### Global Styles (전역)
+
+대표적으로 전역 스타일이 필요한 경우: 1. html, body 기본 스타일 2. reset
+스타일 3. 전역 폰트 선언 4. 공통 색상/레이아웃 규칙 5. 공통 animation 등
+
+------------------------------------------------------------------------
+
+## CSS Modules (Tailwind로 해결 어려운 스타일)
+
+Tailwind로 어려운 경우: 1. 특정 컴포넌트에만 필요한 복잡한 animation 2.
+canvas, svg 고급 스타일 3. Tailwind에 없는 custom class 4. 다수의 규칙이
+필요한 경우(@keyframes, @font-face 등)
+
+이 경우 `Button.module.css` 등 컴포넌트 단위 CSS Module 사용.
+
+------------------------------------------------------------------------
+
+## Bootstrap 실습 (외부 스타일 시트)
+
+### 1. Bootstrap 설치
+
+``` bash
+npm install bootstrap@5.3.8
+```
+
+### 2. 사용 예시
+
+``` tsx
+import 'bootstrap/dist/css/bootstrap.css';
+```
+
+### localLayout 영향 확인
+
+-   특정 디렉토리 localLayout에 import해도 해당 디렉토리 하위 전체에
+    영향 적용됨.
+-   Bootstrap은 전역 기반 CSS 프레임워크이므로 import 한 번으로 전역
+    영향 발생.
+
+------------------------------------------------------------------------
+
+## 외부 CSS 주의할 프레임워크들
+
+1.  **Bootstrap** --- 전역 규칙이 많아 충돌 위험 존재.
+2.  **Bulma** --- class 기반이지만 html/body에도 영향.
+3.  **Foundation** --- normalize + 전역 스타일.
+4.  **Semantic UI / Fomantic UI**
+5.  **Materialize CSS**
+6.  **reset.css / normalize.css / sanitize.css**
+
+------------------------------------------------------------------------
+
+## CSS 병합 및 순서
+
+Next.js는 빌드 중 스타일을 자동으로 병합(chunk)합니다.
+
+### 예시
+
+`BaseButton`이 먼저 import → 해당 module.css가 우선 적용됨.
+
+------------------------------------------------------------------------
+
+## 실습: BaseButton 스타일 충돌 해결
+
+### 문제 원인
+
+BaseButton에서 `props`를 받지 않는데 page에서 props로 className 전달 →
+오류 발생.
+
+### 해결 코드
+
+``` tsx
+type BaseButtonProps = {
+  className2: string;
+};
+
+export function BaseButton({ className2 }: BaseButtonProps) {
+  return (
+    <button className={`${styles.primary} ${className2 ?? ''}`}>
+      버튼
+    </button>
+  );
+}
+```
+
+------------------------------------------------------------------------
+
+## 최종 결과 설명
+
+-   문서에서는 base-button.module.css가 먼저 요청된다고 했지만\
+    실제로는 page.module.css가 적용됨 → import 순서 및 병합 규칙 때문.
+
+------------------------------------------------------------------------
+
+## End of Document
+
+
 # 11월 12일 12주차 강의 내용
 
 ## Next.js Streaming Guide
